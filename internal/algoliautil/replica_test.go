@@ -113,11 +113,27 @@ func Test_RemoveIndexFromReplicas(t *testing.T) {
 			},
 			want: []string{"virtual(abc)", "virtual(def)", "target", "virtual(target"},
 		},
+		{
+			// Regression: removing the last replica must yield a non-nil empty slice so
+			// the v4 SDK's omitempty-aware MarshalJSON still serializes `"replicas": []`.
+			// Returning nil here would cause the API to leave the replicas list untouched.
+			name: "returns non-nil empty slice when last replica removed",
+			args: args{
+				replicas:  []string{"target"},
+				indexName: "target",
+				isVirtual: false,
+			},
+			want: []string{},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := RemoveIndexFromReplicas(tt.args.replicas, tt.args.indexName, tt.args.isVirtual); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("removeVirtualIndexFromReplicaList() = %v, want %v", got, tt.want)
+			got := RemoveIndexFromReplicas(tt.args.replicas, tt.args.indexName, tt.args.isVirtual)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RemoveIndexFromReplicas() = %v, want %v", got, tt.want)
+			}
+			if got == nil {
+				t.Error("RemoveIndexFromReplicas() returned a nil slice; must be non-nil so v4 SDK serializes the empty replicas array")
 			}
 		})
 	}

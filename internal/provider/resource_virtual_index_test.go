@@ -8,6 +8,7 @@ import (
 )
 
 func TestAccResourceVirtualIndex(t *testing.T) {
+	t.Skip("virtual replicas require an Algolia plan with virtual replicas enabled")
 	indexName := randResourceID(80)
 	virtualIndexName := fmt.Sprintf("%s_virtual", indexName)
 	indexResourceName := fmt.Sprintf("algolia_index.%s", indexName)
