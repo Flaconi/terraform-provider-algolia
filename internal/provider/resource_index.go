@@ -940,10 +940,17 @@ func marshalPerformanceConfig(settings *search.SettingsResponse, isVirtualIndex 
 }
 
 func marshalAdvancedConfig(settings *search.SettingsResponse, isVirtualIndex bool) []interface{} {
+	// `distinct` is a v4 union (Bool | Int32). The schema is TypeInt: true -> 1,
+	// false/missing -> 0. Without this Bool branch, indices that Algolia stores
+	// with `distinct: true` would read back as 0 and produce a spurious
+	// `distinct = 0 -> 1` plan diff against a config that sets `distinct = 1`.
 	var distinctVal int
 	d := settings.GetDistinct()
-	if d.Int32 != nil {
+	switch {
+	case d.Int32 != nil:
 		distinctVal = int(*d.Int32)
+	case d.Bool != nil && *d.Bool:
+		distinctVal = 1
 	}
 
 	minProximity := int(settings.GetMinProximity())
