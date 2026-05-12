@@ -361,15 +361,12 @@ List of supported languages are listed on http://nhttps//www.algolia.com/doc/api
 							Type:     schema.TypeMap,
 							Elem:     &schema.Schema{Type: schema.TypeString},
 							Optional: true,
-							Computed: true,
-							// Algolia injects locale-dependent server-side normalizations
-							// (e.g. {"°":"o"}) into every index by default. Without diff
-							// suppression, terraform would propose wiping these on every
-							// apply when the user's config doesn't explicitly set
-							// custom_normalization. Suppress the diff in that case so the
-							// engine defaults are preserved.
-							DiffSuppressFunc: suppressCustomNormalizationDiff,
-							Description:      "Custom normalization which overrides the engine’s default normalization",
+							// Computed so that when the user does not declare this field
+							// in HCL, terraform tolerates state having an empty map
+							// (written by marshalLanguageConfig when the user is silent)
+							// rather than treating the absence as "must equal empty".
+							Computed:    true,
+							Description: "Custom normalization which overrides the engine’s default normalization",
 						},
 						"query_languages": {
 							Type:        schema.TypeSet,
@@ -756,7 +753,7 @@ func mapToIndexResourceValues(d *schema.ResourceData, settings *search.SettingsR
 			"pagination_limited_to": int(settings.GetPaginationLimitedTo()),
 		}},
 		"typos_config":           marshalTyposConfig(settings, isVirtualIndex),
-		"languages_config":       marshalLanguageConfig(settings, isVirtualIndex),
+		"languages_config":       marshalLanguageConfig(d, settings, isVirtualIndex),
 		"enable_rules":           settings.GetEnableRules(),
 		"enable_personalization": settings.GetEnablePersonalization(),
 		"query_strategy_config":  marshalQueryStrategyConfig(settings, isVirtualIndex),
@@ -827,7 +824,7 @@ func marshalTyposConfig(settings *search.SettingsResponse, isVirtualIndex bool) 
 	return []interface{}{typosConfig}
 }
 
-func marshalLanguageConfig(settings *search.SettingsResponse, isVirtualIndex bool) []interface{} {
+func marshalLanguageConfig(d *schema.ResourceData, settings *search.SettingsResponse, isVirtualIndex bool) []interface{} {
 	var ignorePlurals interface{}
 	ignorePluralsFor := []string{}
 	ip := settings.GetIgnorePlurals()
@@ -884,9 +881,16 @@ func marshalLanguageConfig(settings *search.SettingsResponse, isVirtualIndex boo
 	}
 	if !isVirtualIndex {
 		languageConfig["camel_case_attributes"] = emptyIfNil(settings.GetCamelCaseAttributes())
+		// Algolia injects locale-specific server-side default normalizations
+		// (e.g. {"°":"o"}) into every index. Only surface Algolia's response in
+		// state when the user has explicitly declared `custom_normalization` in
+		// HCL; otherwise persist an empty map so state matches config and the
+		// engine defaults are not wiped on apply.
 		customNorm := map[string]string{}
-		if defaultNorm, ok := settings.GetCustomNormalization()["default"]; ok && defaultNorm != nil {
-			customNorm = defaultNorm
+		if userDeclaredCustomNormalization(d) {
+			if defaultNorm, ok := settings.GetCustomNormalization()["default"]; ok && defaultNorm != nil {
+				customNorm = defaultNorm
+			}
 		}
 		languageConfig["custom_normalization"] = customNorm
 		languageConfig["decompounded_attributes"] = decompoundedAttributes
@@ -1414,12 +1418,13 @@ func waitForReplicaDetached(ctx context.Context, apiClient *apiClient, replicaNa
 	return err
 }
 
-// suppressCustomNormalizationDiff suppresses plan diffs on
-// languages_config.0.custom_normalization when the user has not declared the
-// field in HCL. Algolia injects locale-specific server-side default
-// normalizations (e.g. {"°":"o"}) into every index, and reading them back
-// would otherwise produce a permanent diff proposing to wipe the defaults.
-func suppressCustomNormalizationDiff(k, old, new string, d *schema.ResourceData) bool {
+// userDeclaredCustomNormalization reports whether the user explicitly set
+// `languages_config.0.custom_normalization` to a non-empty map in HCL. Used by
+// the Read path to decide whether to persist Algolia's response (which always
+// includes locale-specific server-side default normalizations like {"°":"o"})
+// into state. When the user has not declared the field, state is written
+// empty so terraform never proposes wiping the engine defaults.
+func userDeclaredCustomNormalization(d *schema.ResourceData) bool {
 	raw := d.GetRawConfig()
 	if raw.IsNull() || !raw.IsKnown() {
 		return false
@@ -1437,14 +1442,11 @@ func suppressCustomNormalizationDiff(k, old, new string, d *schema.ResourceData)
 		return false
 	}
 	cn := block.GetAttr("custom_normalization")
-	// Suppress diff iff the user has not declared the field in HCL (null) or
-	// declared it as an empty map. In both cases, treat the state value as
-	// authoritative so Algolia's server-side defaults survive.
-	if cn.IsNull() {
-		return true
+	if cn.IsNull() || !cn.IsKnown() {
+		return false
 	}
-	if cn.IsKnown() && cn.CanIterateElements() && cn.LengthInt() == 0 {
-		return true
+	if !cn.CanIterateElements() {
+		return false
 	}
-	return false
+	return cn.LengthInt() > 0
 }
