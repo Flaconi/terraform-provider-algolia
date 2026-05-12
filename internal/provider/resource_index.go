@@ -361,13 +361,15 @@ List of supported languages are listed on http://nhttps//www.algolia.com/doc/api
 							Type:     schema.TypeMap,
 							Elem:     &schema.Schema{Type: schema.TypeString},
 							Optional: true,
-							// Computed so that Algolia's server-side default normalizations
-							// (e.g. {"°":"o"}) read back from the API don't force a plan
-							// diff when the user hasn't explicitly set this map. Without
-							// Computed, terraform would propose wiping the engine defaults
-							// on every apply.
-							Computed:    true,
-							Description: "Custom normalization which overrides the engine’s default normalization",
+							Computed: true,
+							// Algolia injects locale-dependent server-side normalizations
+							// (e.g. {"°":"o"}) into every index by default. Without diff
+							// suppression, terraform would propose wiping these on every
+							// apply when the user's config doesn't explicitly set
+							// custom_normalization. Suppress the diff in that case so the
+							// engine defaults are preserved.
+							DiffSuppressFunc: suppressCustomNormalizationDiff,
+							Description:      "Custom normalization which overrides the engine’s default normalization",
 						},
 						"query_languages": {
 							Type:        schema.TypeSet,
@@ -1410,4 +1412,39 @@ func waitForReplicaDetached(ctx context.Context, apiClient *apiClient, replicaNa
 		return fmt.Errorf("%w (last observed primary=%q)", err, lastPrimary)
 	}
 	return err
+}
+
+// suppressCustomNormalizationDiff suppresses plan diffs on
+// languages_config.0.custom_normalization when the user has not declared the
+// field in HCL. Algolia injects locale-specific server-side default
+// normalizations (e.g. {"°":"o"}) into every index, and reading them back
+// would otherwise produce a permanent diff proposing to wipe the defaults.
+func suppressCustomNormalizationDiff(k, old, new string, d *schema.ResourceData) bool {
+	raw := d.GetRawConfig()
+	if raw.IsNull() || !raw.IsKnown() {
+		return false
+	}
+	lc := raw.GetAttr("languages_config")
+	if lc.IsNull() || !lc.IsKnown() || lc.LengthInt() == 0 {
+		return false
+	}
+	it := lc.ElementIterator()
+	if !it.Next() {
+		return false
+	}
+	_, block := it.Element()
+	if block.IsNull() || !block.IsKnown() {
+		return false
+	}
+	cn := block.GetAttr("custom_normalization")
+	// Suppress diff iff the user has not declared the field in HCL (null) or
+	// declared it as an empty map. In both cases, treat the state value as
+	// authoritative so Algolia's server-side defaults survive.
+	if cn.IsNull() {
+		return true
+	}
+	if cn.IsKnown() && cn.CanIterateElements() && cn.LengthInt() == 0 {
+		return true
+	}
+	return false
 }
