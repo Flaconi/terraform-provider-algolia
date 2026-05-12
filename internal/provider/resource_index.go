@@ -358,9 +358,15 @@ List of supported languages are listed on http://nhttps//www.algolia.com/doc/api
 							Description: "List of characters that the engine shouldn’t automatically normalize.",
 						},
 						"custom_normalization": {
-							Type:        schema.TypeMap,
-							Elem:        &schema.Schema{Type: schema.TypeString},
-							Optional:    true,
+							Type:     schema.TypeMap,
+							Elem:     &schema.Schema{Type: schema.TypeString},
+							Optional: true,
+							// Computed so that Algolia's server-side default normalizations
+							// (e.g. {"°":"o"}) read back from the API don't force a plan
+							// diff when the user hasn't explicitly set this map. Without
+							// Computed, terraform would propose wiping the engine defaults
+							// on every apply.
+							Computed:    true,
 							Description: "Custom normalization which overrides the engine’s default normalization",
 						},
 						"query_languages": {
