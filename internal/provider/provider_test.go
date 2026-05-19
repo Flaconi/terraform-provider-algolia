@@ -36,9 +36,9 @@ func newTestAPIClient() *apiClient {
 
 func testAccPreCheck(t *testing.T) {
 	if os.Getenv("ALGOLIA_APP_ID") == "" {
-		t.Fatal("env variable 'ALGOLIA_APP_ID' is not set")
+		t.Skip("env variable 'ALGOLIA_APP_ID' is not set")
 	}
 	if os.Getenv("ALGOLIA_API_KEY") == "" {
-		t.Fatal("env variable 'ALGOLIA_API_KEY' is not set")
+		t.Skip("env variable 'ALGOLIA_API_KEY' is not set")
 	}
 }
