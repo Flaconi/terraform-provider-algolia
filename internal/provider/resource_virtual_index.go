@@ -786,7 +786,7 @@ func refreshVirtualIndexState(ctx context.Context, d *schema.ResourceData, m int
 		}},
 		"faceting_config": []interface{}{map[string]interface{}{
 			"max_values_per_facet": int(settings.GetMaxValuesPerFacet()),
-			"sort_facet_values_by": string(settings.GetSortFacetValuesBy()),
+			"sort_facet_values_by": settings.GetSortFacetValuesBy(),
 		}},
 		"highlight_and_snippet_config": []interface{}{map[string]interface{}{
 			"attributes_to_highlight":               settings.GetAttributesToHighlight(),
@@ -849,10 +849,10 @@ func refreshVirtualIndexState(ctx context.Context, d *schema.ResourceData, m int
 				}
 				return 0
 			}(),
-			"replace_synonyms_in_highlight": settings.GetReplaceSynonymsInHighlight(),
-			"min_proximity":                 int(settings.GetMinProximity()),
-			"response_fields":               settings.GetResponseFields(),
-			"max_facet_hits":                int(settings.GetMaxFacetHits()),
+			"replace_synonyms_in_highlight":                settings.GetReplaceSynonymsInHighlight(),
+			"min_proximity":                                int(settings.GetMinProximity()),
+			"response_fields":                              settings.GetResponseFields(),
+			"max_facet_hits":                               int(settings.GetMaxFacetHits()),
 			"attribute_criteria_computed_by_min_proximity": settings.GetAttributeCriteriaComputedByMinProximity(),
 		}},
 	}

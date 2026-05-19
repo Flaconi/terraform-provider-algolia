@@ -738,7 +738,7 @@ func mapToIndexResourceValues(d *schema.ResourceData, settings *search.SettingsR
 		"ranking_config":     marshalRankingConfig(settings, isVirtualIndex),
 		"faceting_config": []interface{}{map[string]interface{}{
 			"max_values_per_facet": int(settings.GetMaxValuesPerFacet()),
-			"sort_facet_values_by": string(settings.GetSortFacetValuesBy()),
+			"sort_facet_values_by": settings.GetSortFacetValuesBy(),
 		}},
 		"highlight_and_snippet_config": []interface{}{map[string]interface{}{
 			"attributes_to_highlight":               emptyIfNil(settings.GetAttributesToHighlight()),
