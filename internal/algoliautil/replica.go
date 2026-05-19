@@ -17,7 +17,10 @@ func IndexExistsInReplicas(replicas []string, indexName string, isVirtual bool) 
 func RemoveIndexFromReplicas(replicas []string, indexName string, isVirtual bool) []string {
 	replicaIndexName := getReplicaIndexName(indexName, isVirtual)
 
-	var newReplicas []string
+	// Initialize as empty (non-nil) so the v4 SDK's MarshalJSON serializes an empty
+	// `replicas` array when the last replica is removed; nil would be omitted entirely
+	// and the API would leave the replicas list unchanged.
+	newReplicas := []string{}
 	for _, replica := range replicas {
 		if replica == replicaIndexName {
 			continue

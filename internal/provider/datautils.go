@@ -16,6 +16,25 @@ func setValues(d *schema.ResourceData, values map[string]interface{}) error {
 	return nil
 }
 
+// emptyIfNil returns an empty non-nil slice when s is nil; otherwise returns s.
+// The v4 SDK getters return nil for unset slices, but terraform-plugin-sdk treats
+// nil and empty list differently in state, causing spurious plan diffs.
+func emptyIfNil[T any](s []T) []T {
+	if s == nil {
+		return []T{}
+	}
+	return s
+}
+
+// stringOrDefault returns def when s is empty; otherwise s. Used to surface
+// Algolia server-side defaults in state (the v4 API omits fields at default values).
+func stringOrDefault(s, def string) string {
+	if s == "" {
+		return def
+	}
+	return s
+}
+
 func castStringList(list interface{}) []string {
 	// we are initializing non nil array to be marshaled to [] in JSON
 	strs := []string{}

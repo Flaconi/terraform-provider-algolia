@@ -9,10 +9,13 @@ resource "algolia_rule" "example" {
 
   consequence {
     params_json = jsonencode({
-      automaticFacetFilters = {
-        facet       = "category"
-        disjunctive = true
-      }
+      automaticFacetFilters = [
+        {
+          facet       = "category"
+          disjunctive = true
+          score       = 0
+        }
+      ]
     })
   }
 }
