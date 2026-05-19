@@ -63,9 +63,10 @@ jobs:
       fail-fast: false
       matrix:
         terraform:
-          - '1.3.9'
-          - '1.4.6'
-          - '1.5.1'
+          - '1.9.8'
+          - '1.10.5'
+          - '1.11.4'
+          - '1.15.3'
     steps:
     - uses: actions/checkout@v6
     - uses: actions/setup-go@v6
@@ -87,15 +88,6 @@ jobs:
       env:
         TF_ACC: "1"
         TF_ACC_TERRAFORM_VERSION: ${{ matrix.terraform }}
-        ALGOLIA_APP_ID: ${{ secrets.ALGOLIA_APP_ID }}
-        ALGOLIA_API_KEY: ${{ secrets.ALGOLIA_API_KEY }}
 
       run: |
-        go test -v -coverprofile=coverage.out ./internal/...
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v5
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        file: ./coverage.out
-        fail_ci_if_error: true
+        go test -v ./internal/...
